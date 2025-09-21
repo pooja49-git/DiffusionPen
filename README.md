@@ -1,109 +1,151 @@
-DiffusionPen for Hindi: A Handwriting Generation & Style Transfer Project
-This project is an implementation of a conditional diffusion model, based on the "DiffusionPen" paper, specifically adapted and trained for generating handwritten text in Hindi. The system can learn a person's unique handwriting style from a few samples and generate new, unseen words and sentences in that style.
+# DiffusionPen for Hindi: A Handwriting Generation & Style Transfer Project
 
-Key Features
-High-Quality Hindi Word Generation: Creates clear, realistic images of handwritten Hindi words.
+This project implements a conditional diffusion model, based on the "DiffusionPen" paper, specifically adapted and trained for generating handwritten text in **Hindi**. The system learns a person's unique handwriting style from a few samples and synthesizes new, unseen words and sentences in that precise style.
 
-Few-Shot Style Transfer: Learns a unique handwriting style from just a small number of sample images (5-10).
+## Key Features
 
-Paragraph Generation: Generates individual words and intelligently stitches them together to form coherent, multi-line paragraphs.
+* **High-Quality Hindi Text Generation:** Produces clear, realistic images of handwritten Hindi words and sentences.
+* **Few-Shot Style Transfer:** Accurately replicates and transfers a unique handwriting style from just a small set of example images (typically 5-10).
+* **Paragraph Synthesis:** Capable of generating individual words and intelligently composing them into coherent, multi-line paragraphs.
+* **Robust Two-Stage Training Pipeline:**
+    * A **Style Encoder** is initially trained to understand and quantify handwriting style using triplet loss.
+    * A **U-Net Generator** is subsequently trained to produce images, conditioned by the pre-trained Style Encoder and text embeddings.
+* **Custom Dataset Compatibility:** Designed with flexible data loaders to integrate custom Hindi handwriting datasets via simple annotation files.
 
-Two-Stage Training Pipeline:
+## Generated Examples
 
-A Style Encoder is first trained to understand and quantify handwriting style.
+The model was successfully trained on a custom dataset comprising approximately **70,000 Hindi word images** from **7 distinct writers**.
 
-A U-Net Generator is then trained to create images, guided by the pre-trained Style Encoder.
+### Single Word Generation
+<img width="1034" height="68" alt="image" src="https://github.com/user-attachments/assets/1f6de2da-8bbe-416b-ab23-95efb3841523" />
 
-Custom Dataset Compatibility: The data loaders are built to work with a custom dataset structure defined by simple annotation files.
 
-Generated Examples
-The model was successfully trained on a custom dataset of ~70,000 Hindi word images from 7 different writers.
+### Paragraph Generation
+<img width="1024" height="1932" alt="image" src="https://github.com/user-attachments/assets/61482e35-ad93-4acf-88a2-0b47c24b6a90" />
 
-Single Word Generation
-The model can generate different words while maintaining a consistent handwriting style.
 
-Paragraph Generation
-The system can generate and arrange multiple words to form a full paragraph.
+## System Architecture
 
-System Architecture
-The project uses a two-model system, as described in the DiffusionPen paper:
+The project employs a robust two-model system, mirroring the architecture proposed in the DiffusionPen paper:
 
-The Style Encoder (The "Art Critic"): A pre-trained MobileNetV2 model is fine-tuned using Triplet Loss. It learns to create a 1280-dimensional style vector that numerically represents a handwriting style.
+1.  **The Style Encoder (The "Handwriting Analyst"):**
+    * Utilizes a pre-trained **MobileNetV2** backbone, fine-tuned using **Triplet Loss**.
+    * Its function is to extract a unique **1280-dimensional style vector** from handwriting samples, mathematically representing a writer's style.
 
-The U-Net Generator (The "Artist"): This is the main diffusion model. It takes a random noise input and learns to denoise it into a clean image. Its work is guided by two conditions:
+2.  **The U-Net Generator (The "Digital Scribe"):**
+    * The core diffusion model responsible for image generation.
+    * It progressively denoises a random noise input into a coherent handwriting image.
+    * Its generation process is critically conditioned by two inputs:
+        * The **style vector** provided by the Style Encoder.
+        * A **text embedding** (derived from a `CANINE` model) representing the textual content to be generated.
 
-The style vector from the Style Encoder.
+## Setup and Installation
 
-A text embedding (from a CANINE model) representing the word to be written.
+1.  **Clone the repository:**
+    ```bash
+    git clone [YOUR_GITHUB_REPO_URL_HERE]
+    cd [YOUR_REPO_NAME]
+    ```
 
-Setup and Installation
-Clone the repository:
+2.  **Create and activate a Conda environment:**
+    ```bash
+    conda create -n diffpen_hindi python=3.8
+    conda activate diffpen_hindi
+    ```
 
-Bash
+3.  **Install project dependencies:**
+    ```bash
+    pip install torch torchvision torchaudio transformers diffusers timm tqdm numpy Pillow
+    ```
 
-git clone [Your-Repo-URL]
-cd [Your-Repo-Name]
-Create and activate a Conda environment:
+4.  **Download Pre-trained Models:**
+    The project relies on a few pre-trained models. These should be downloaded and placed in specific directories.
 
-Bash
+    * **CANINE Tokenizer & Model:** Used for text embeddings.
+        * You can typically download these through the `transformers` library when first used, or manually from Hugging Face: `google/canine-c`. Ensure they are accessible by your script (e.g., in a `./canine_model/` directory if your code expects it there).
+    * **Stable Diffusion v1.5 components (VAE, U-Net, Scheduler):** These form the base of the image generation pipeline.
+        * These can be downloaded using the `diffusers` library. Your code might have a function for this, or you might need to manually download them to a `./stable_diffusion_weights/` directory (or similar path expected by your code).
 
-conda create -n diffpen python=3.8
-conda activate diffpen
-Install dependencies:
+    *(**Note:** Specific download instructions or helper scripts should be referenced here if they exist in your repository.)*
 
-Bash
+## Usage Guide
 
-pip install torch torchvision torchaudio
-pip install transformers diffusers timm tqdm numpy Pillow
-Download Pre-trained Models:
+This project follows a two-stage training process, followed by inference (generation).
 
-Run the provided helper scripts to download the CANINE Tokenizer & Model and the Stable Diffusion v1.5 components to their respective local folders.
+### 1. Prepare Your Dataset
 
-Usage
-This is a two-stage project. You must first train the Style Encoder, and then train the main Generator.
+* Organize your handwriting image data with the structure: `data_root/split/writer_id/image.jpg`.
+* Create `train.txt` and `val.txt` annotation files, where each line specifies: `relative/path/to/image.jpg word_transcription`.
+    * Example `train.txt` entry: `writer001/img_0001.jpg आपका`
 
-1. Prepare Your Dataset
-Ensure your dataset is organized in the structure data_root/split/writer_id/.../image.jpg.
+### 2. Train the Style Encoder
 
-Create train.txt and val.txt annotation files where each line is: relative/path/to/image.jpg word
+This script trains the `ImageEncoder` to learn distinct handwriting styles using triplet loss.
+The output will be saved to `./style_models/wordstylist_mobilenetv2_100_best.pth`.
 
-2. Train the Style Encoder
-This script trains the model that learns handwriting styles.
-
-Bash
-
+```bash
 python style_encoder_train_wordstylist.py \
     --train_annotation /path/to/your/train.txt \
     --val_annotation /path/to/your/val.txt \
     --data_root /path/to/your/data/ \
-    --save_path ./style_models
-3. Train the Main Generator
-This script trains the U-Net that generates the images, using the style encoder you just trained.
+    --save_path ./style_models \
+    --num_epochs 100 \
+    --batch_size 64 \
+    --lr 0.0001
+    # Add other parameters you used for your training
+```
 
-Bash
+### 3\. Train the Main Generator (U-Net)
 
-sbatch run_training.sh
-(Ensure the paths inside run_training.sh are correct, especially the --style_path which must point to the output of the previous step).
+This script trains the U-Net for image generation, critically utilizing the style encoder trained in the previous step.
 
-4. Generate New Handwriting (Inference)
-After the main generator is trained, use this script to create new images.
+```bash
+# If using a Slurm cluster, you might run:
+# sbatch run_training.sh
 
-Bash
-
-python generate_sentence.py \
-    --text "आपका स्वागत है" \
-    --style_folder ./style_samples/ \
+# For direct execution, use a command similar to this (adjust parameters as needed):
+python train_wordstylist.py \
+    --train_annotation /path/to/your/train.txt \
+    --val_annotation /path/to/your/val.txt \
+    --data_root /path/to/your/data/ \
     --style_path ./style_models/wordstylist_mobilenetv2_100_best.pth \
     --save_path ./diffusion_models \
-    --train_annotation /path/to/your/train.txt
-Acknowledgments
-This project is based on the methods and architecture described in the paper:
+    --num_epochs 1000 \
+    --batch_size 16 \
+    --lr 0.00001 \
+    --image_size 128 \
+    --gpu_ids 0 \
+    --project_name diffpen_hindi_generator
+    # ... include all other relevant parameters used in your actual training run.
+```
 
-DiffusionPen: Towards Controlling the Style of Handwritten Text Generation by Nikolaidou, K., Retsinas, G., Sfikas, G., & Liwicki, M. (2024).
+*(**Note:** `--style_path` must correctly point to the `wordstylist_mobilenetv2_100_best.pth` file generated from Step 2. `--ema_path` in `generate_sentence.py` will typically point to `diffusion_models/ema_ckpt.pt` which is the output of this training step.)*
 
+### 4\. Generate New Handwriting (Inference)
 
+After the main generator is trained, use this script to synthesize new handwriting images from text and style samples.
 
+```bash
+python generate_sentence.py \
+    --text "आपका स्वागत है" \
+    --style_folder ./path/to/your/style_sample_images/ \
+    --style_path ./style_models/wordstylist_mobilenetv2_100_best.pth \
+    --ema_path ./diffusion_models/ema_ckpt.pt \
+    --save_path ./output_images \
+    --train_annotation /path/to/your/train.txt \
+    --num_inference_steps 50 \
+    --guidance_scale 7.5 \
+    --num_samples 1
+    # ... any other parameters relevant for generation
+```
 
+*(**Note:** `--style_folder` should contain 5-10 *distinct* images from a single writer whose style you want to replicate. The `text` argument can be a single word or a short sentence.)*
 
+---
 
+## Acknowledgments
 
+This project is built upon the foundational work and architecture described in the following research paper:
+
+* **DiffusionPen: Towards Controlling the Style of Handwritten Text Generation**
+    * *By Nikolaidou, K., Retsinas, G., Sfikas, G., & Liwicki, M. (2024).*
